@@ -16,9 +16,13 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
+using Serilog.Sinks.Slack.Client;
 
 namespace Serilog.Sinks.Slack
 {
@@ -48,6 +52,11 @@ namespace Serilog.Sinks.Slack
         private readonly string _iconUrl;
 
         /// <summary>
+        /// Icon emoji.
+        /// </summary>
+        private readonly string _iconEmoji;
+
+        /// <summary>
         ///     Construct a sink posting to the specified Slack Channel.
         /// </summary>
         /// <param name="channelId">Slack Channel Id.</param>
@@ -56,13 +65,15 @@ namespace Serilog.Sinks.Slack
         /// <param name="username">Optional bot name</param>
         /// <param name="iconUrl">Optional URL to an image to use as the icon for this message.</param>
         public SlackSink(string channelId, string token,
-                               IFormatProvider formatProvider, string username = null, string iconUrl = null)
+                         IFormatProvider formatProvider,
+                         string username = null, 
+                         string iconUrl = null)
         {
             if (string.IsNullOrWhiteSpace(channelId))
-                throw new ArgumentNullException(nameof(channelId));
+                throw new ArgumentNullException("channelId");
 
             if (string.IsNullOrWhiteSpace(token))
-                throw new ArgumentNullException(nameof(token));
+                throw new ArgumentNullException("token");
 
             FormatProvider = formatProvider;
             Channels.Add(new SlackChannel(channelId, token));
@@ -83,7 +94,7 @@ namespace Serilog.Sinks.Slack
                                IFormatProvider formatProvider, string username = null, string iconUrl = null)
         {
             if (channels == null)
-                throw new ArgumentNullException(nameof(channels));
+                throw new ArgumentNullException("channels");
 
             FormatProvider = formatProvider;
             Channels = channels;
@@ -102,15 +113,19 @@ namespace Serilog.Sinks.Slack
         /// <param name="renderMessageImplementation">Optional delegate to build json to send to slack webhook. By default uses <see cref="RenderMessage"/>.</param>
         /// <param name="formatProvider">FormatProvider to apply to <see cref="LogEvent.RenderMessage(IFormatProvider)"/>.</param>
         public SlackSink(string webhookUri,
-            SlackSink.RenderMessageMethod renderMessageImplementation,
-                               IFormatProvider formatProvider)
+                         SlackSink.RenderMessageMethod renderMessageImplementation,
+                         IFormatProvider formatProvider,
+                         string username,
+                         string iconEmoji)
         {
             if (string.IsNullOrWhiteSpace(webhookUri))
-                throw new ArgumentNullException("webhookUri");
-
+                throw new ArgumentNullException(nameof(webhookUri));
+            
             FormatProvider = formatProvider;
             Channels.Add(new SlackChannel(webhookUri));
             RenderMessageImplementation = renderMessageImplementation ?? RenderMessage;
+            _username = username;
+            _iconEmoji = iconEmoji;
 
             if (Channels.Count == 0)
                 SelfLog.WriteLine("There are 0 Slack channels defined. Slack sink will not send messages.");
@@ -120,7 +135,7 @@ namespace Serilog.Sinks.Slack
         /// <summary>
         /// Delegate to allow overriding of the RenderMessage method.
         /// </summary>
-        public delegate string RenderMessageMethod(LogEvent input);
+        public delegate string RenderMessageMethod(LogEvent input, string username, string iconEmoji);
 
         /// <summary>
         /// RenderMessage method that will transform LogEvent into a Slack message.
@@ -134,51 +149,63 @@ namespace Serilog.Sinks.Slack
             foreach (var item in Channels)
             {
                 // FormatProvider overrides default behaviour
-                var message = (FormatProvider != null) ? logEvent.RenderMessage(FormatProvider) : RenderMessageImplementation(logEvent);
+                var message = (FormatProvider != null) ? logEvent.RenderMessage(FormatProvider) : RenderMessageImplementation(logEvent, _username, _iconEmoji);
 
-                if (item.UsesWebhooks)
-                {
-                    SendMessageWithWebHooks(item.WebHookUri, message);
-                }
-                else
-                {
-                    SendMessageWithChannelIdAndToken(item.Token, item.ChannelId, message);
-                }
+                SendMessageWithWebHooks(item.WebHookUri, message);
             }
         }
 
         #endregion
 
-        protected static string RenderMessage(LogEvent logEvent)
+        protected static string RenderMessage(LogEvent logEvent, string username, string iconEmoji)
         {
             dynamic body = new ExpandoObject();
             body.text = logEvent.RenderMessage();
+
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                body.username = username;
+            }
+
+            if (!string.IsNullOrWhiteSpace(iconEmoji))
+            {
+                body.icon_emoji = iconEmoji;
+            }
+
             body.attachments = WrapInAttachment(logEvent).ToArray();
 
-            return Newtonsoft.Json.JsonConvert.SerializeObject(body);
+            // TODO: Move to Slack Message
+            //var slackMassage = new SlackMessage
+            //{
+            //    Text = logEvent.RenderMessage(),
+            //    IconEmoji = iconEmoji,
+            //    Username = username,
+            //    Attachments = new List<SlackAttachment>
+            //    {
+            //        new SlackAttachment {
+            //        }
+            //    }
+            //};
+
+            //return Newtonsoft.Json.JsonConvert.SerializeObject(body);
+            return System.Text.Json.JsonSerializer.Serialize(body);
         }
-
-        protected void SendMessageWithChannelIdAndToken(string token, string channelId, string message)
-        {
-            SelfLog.WriteLine("Trying to send message to channelId '{0}' with token '{1}': '{2}'.", channelId, token, message);
-
-            var sendMessageResult = SlackClient.SlackClient.SendMessage(token, channelId, message, _username, _iconUrl);
-            if (sendMessageResult != null)
-            {
-                SelfLog.WriteLine("Message sent to channelId '{0}' with token '{1}': '{2}'.", channelId, token, sendMessageResult.JsonValue.ToString());
-            }
-        }
-
+        
         protected void SendMessageWithWebHooks(string webhookUri, string message)
         {
             SelfLog.WriteLine("Trying to send message to webhook '{0}': '{1}'.", webhookUri, message);
 
-            if (message != null)
+            if (!string.IsNullOrWhiteSpace(message))
             {
-                var sendMessageResult = SlackClient.SlackClient.SendMessageViaWebhooks(webhookUri, message);
+                var slackClient = new SlackClient(webhookUri, 25);
+
+                var sendMessageTask = slackClient.PostAsync(message);
+                Task.WaitAll(sendMessageTask);
+
+                var sendMessageResult = sendMessageTask.Result;
                 if (sendMessageResult != null)
                 {
-                    SelfLog.WriteLine("Message sent to webhook '{0}': '{1}'.", webhookUri, sendMessageResult);
+                    SelfLog.WriteLine("Message sent to webhook '{0}': '{1}'.", webhookUri, sendMessageResult.StatusCode);
                 }
             }
         }

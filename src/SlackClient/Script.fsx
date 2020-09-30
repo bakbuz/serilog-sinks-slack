@@ -1,9 +1,6 @@
 ﻿// Learn more about F# at http://fsharp.org. See the 'F# Tutorial' project
 // for more guidance on F# programming.
 
-//#r @"../../packages/FSharp.Core.4.1.0/lib/net40/FSharp.Core.dll";;
-#r @"../../packages/FSharp.Data.2.3.2/lib/net40/FSharp.Data.dll";;
-
 #load "SlackClient.fs"
 open SlackClient
 open System.Net
@@ -20,7 +17,8 @@ let channelList = ChannelListResponse.Load(channelListRequest apiToken)
 let botChannelId = channelList.Channels.[0].Id
 *)
 let botChannelId = "XXXXXXXXXX"
-let webhookUri = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX" 
+let webhookUri = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
+ 
 let testMessage = "`This%20is%20a%20test%20message!`"
 let testMessage1 = "`This is a test message!`"
 let testMessage2 = "This is a test message!"

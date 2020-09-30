@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
-namespace Serilog.Sinks.Slack.Core.Sinks.Slack.Client
+namespace Serilog.Sinks.Slack.Client
 {
     public class SlackClient
     {
@@ -47,7 +46,8 @@ namespace Serilog.Sinks.Slack.Core.Sinks.Slack.Client
                 username = message.Username,
             };
 
-            var serializedPayload = JsonConvert.SerializeObject(payload);
+            //var serializedPayload = JsonConvert.SerializeObject(payload);
+            var serializedPayload = System.Text.Json.JsonSerializer.Serialize(payload);
             var response = await _httpClient.PostAsync(_webhookUrl,
                 new StringContent(serializedPayload, Encoding.UTF8, "application/json"));
 

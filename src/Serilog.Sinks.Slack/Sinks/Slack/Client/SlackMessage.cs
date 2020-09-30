@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Serilog.Sinks.Slack.Core.Sinks.Slack.Client
+namespace Serilog.Sinks.Slack.Client
 {
     /// <summary>
     /// Slack Message

@@ -1,4 +1,4 @@
-﻿namespace Serilog.Sinks.Slack.Core.Sinks.Slack.Client
+﻿namespace Serilog.Sinks.Slack.Client
 {
     /// <summary>
     /// Slack Field. Fields are displayed in a table on the message

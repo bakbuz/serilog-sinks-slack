@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Serilog.Sinks.Slack.Core.Sinks.Slack.Client
+namespace Serilog.Sinks.Slack.Client
 {
     /// <summary>
     /// Slack message attachment. A message can have zero or more attachments.

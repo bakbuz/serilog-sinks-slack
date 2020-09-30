@@ -32,7 +32,7 @@ namespace Serilog.Sinks.Slack
         public readonly bool UsesWebhooks = false;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Serilog.Sinks.Slack.SlackChannel"/> class.
+        /// Initializes a new instance of the <see cref="SlackChannel"/> class.
         /// </summary>
         public SlackChannel(string webhookUri)
         {
@@ -41,7 +41,7 @@ namespace Serilog.Sinks.Slack
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Serilog.Sinks.Slack.SlackChannel"/> class.
+        /// Initializes a new instance of the <see cref="SlackChannel"/> class.
         /// </summary>
         /// <param name="channelId">Channel identifier.</param>
         /// <param name="token">Token.</param>
